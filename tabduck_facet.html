@@ -1,0 +1,1999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tab Duck 🦆</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/echarts/5.4.3/echarts.min.js"></script>
+    <script>
+        window.duckdbAvailable = false;
+    </script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+        }
+
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 20px;
+            background: white;
+            transition: border-color 0.3s;
+        }
+
+        .upload-area.dragover {
+            border-color: #007bff;
+            background: #f8f9ff;
+        }
+
+        .upload-area input[type="file"] {
+            display: none;
+        }
+
+        .upload-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .upload-btn:hover {
+            background: #0056b3;
+        }
+
+        .file-info {
+            margin-top: 15px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .tableau-widget {
+            display: none;
+            height: 800px;
+            border: 1px solid #e0e0e0;
+            background: #fafafa;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+        }
+
+        .sample-data-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+        }
+
+        .sample-data-btn:hover {
+            background: #218838;
+        }
+
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 4px;
+            min-height: 30px;
+            padding: 5px;
+            font-size: 11px;
+            color: #666;
+            transition: all 0.2s ease;
+        }
+
+        .drop-zone:hover {
+            border-color: #007bff;
+            background-color: #f8f9ff;
+        }
+
+        .drop-zone.drag-over {
+            border-color: #007bff;
+            background-color: #f0f8ff;
+        }
+
+        .field-pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 8px;
+            margin: 2px;
+            border-radius: 4px;
+            font-size: 11px;
+            cursor: move;
+            white-space: nowrap;
+            user-select: none;
+        }
+
+        .field-pill .remove-btn {
+            margin-left: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            opacity: 0.7;
+        }
+
+        .field-pill .remove-btn:hover {
+            opacity: 1;
+        }
+
+        .facet-grid {
+            display: grid;
+            gap: 15px;
+            padding: 20px;
+            background: white;
+            overflow: auto;
+            height: 100%;
+        }
+
+        .facet-chart {
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            min-height: 280px;
+        }
+
+        .facet-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #333;
+            padding: 12px 15px 8px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            background-color: #fafbfc;
+            border-radius: 6px 6px 0 0;
+            text-align: center;
+            min-height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .facet-chart-content {
+            flex: 1;
+            padding: 10px;
+            min-height: 200px;
+        }
+
+        .facet-labels {
+            position: sticky;
+            top: 0;
+            background: white;
+            z-index: 10;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .facet-x-labels {
+            display: grid;
+            gap: 15px;
+            padding: 10px 20px 5px 20px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            text-align: center;
+        }
+
+        .facet-y-label {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            border-right: 2px solid #e0e0e0;
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+            padding: 10px 5px;
+            min-width: 40px;
+        }
+
+        .facet-grid-with-labels {
+            display: grid;
+            height: 100%;
+        }
+
+        .facet-content-area {
+            display: grid;
+            gap: 15px;
+            padding: 20px;
+            overflow: auto;
+        }
+
+        .facet-row {
+            display: grid;
+            gap: 15px;
+            align-items: stretch;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Tableau-Style Data Visualization with Faceting</h1>
+        <p>Upload a CSV file or use sample data to create interactive visualizations with faceting support</p>
+        
+        <div class="upload-area" id="uploadArea">
+            <div>
+                <h3>📊 Upload Your Data</h3>
+                <p>Drag and drop a CSV file here, or click to browse</p>
+                <input type="file" id="fileInput" accept=".csv">
+                <button class="upload-btn" onclick="document.getElementById('fileInput').click()">
+                    Choose CSV File
+                </button>
+                <button class="sample-data-btn" id="sampleDataBtn">
+                    Use Sample Data
+                </button>
+            </div>
+            <div class="file-info" id="fileInfo" style="display: none;"></div>
+        </div>
+
+        <div class="loading" id="loading" style="display: none;">
+            Loading and processing data...
+        </div>
+
+        <div class="tableau-widget" id="tableauWidget">
+            <div style="display: flex; height: 100%;">
+                <!-- Left Panel -->
+                <div class="left-panel" style="
+                    width: 200px;
+                    background: white;
+                    border-right: 1px solid #e0e0e0;
+                    display: flex;
+                    flex-direction: column;
+                ">
+                    <!-- Data Panel -->
+                    <div class="data-panel" style="
+                        flex: 1;
+                        padding: 10px;
+                        border-bottom: 1px solid #e0e0e0;
+                    ">
+                        <h4 style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Data</h4>
+                        <div class="fields-list"></div>
+                    </div>
+
+                    <!-- Marks Panel -->
+                    <div class="marks-panel" style="
+                        height: 200px;
+                        padding: 10px;
+                    ">
+                        <h4 style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Marks</h4>
+                        <div style="margin-bottom: 10px;">
+                            <select class="chart-type" style="width: 100%; padding: 4px;">
+                                <option value="bar">Bar Chart</option>
+                                <option value="line">Line Chart</option>
+                                <option value="scatter">Scatter Plot</option>
+                            </select>
+                        </div>
+                        <div class="color-shelf drop-zone" style="margin-bottom: 8px;">Color</div>
+                        <div class="size-shelf drop-zone">Size</div>
+                    </div>
+                </div>
+
+                <!-- Main Content -->
+                <div class="main-content" style="flex: 1; display: flex; flex-direction: column;">
+                    <!-- Configuration Area -->
+                    <div class="config-area" style="
+                        height: 120px;
+                        background: white;
+                        border-bottom: 1px solid #e0e0e0;
+                        padding: 10px;
+                    ">
+                        <!-- First row: X and Y axes -->
+                        <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 15px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 12px; color: #666; min-width: 15px;">X</span>
+                                <div class="x-shelf drop-zone" style="min-width: 200px;"></div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 12px; color: #666; min-width: 15px;">Y</span>
+                                <div class="y-shelf drop-zone" style="min-width: 200px;"></div>
+                            </div>
+                            <button class="swap-btn" style="
+                                padding: 4px 8px;
+                                border: 1px solid #ccc;
+                                background: white;
+                                cursor: pointer;
+                                font-size: 11px;
+                                border-radius: 4px;
+                            ">⇄ Swap</button>
+                        </div>
+                        
+                        <!-- Second row: Facet controls -->
+                        <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 15px;">
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 12px; color: #666;">Facet X</span>
+                                <div class="facet-x-shelf drop-zone" style="min-width: 180px;"></div>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 10px;">
+                                <span style="font-size: 12px; color: #666;">Facet Y</span>
+                                <div class="facet-y-shelf drop-zone" style="min-width: 180px;"></div>
+                            </div>
+                        </div>
+
+                        <!-- Third row: Controls -->
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <button class="clear-btn" style="
+                                padding: 4px 8px;
+                                border: 1px solid #ccc;
+                                background: white;
+                                cursor: pointer;
+                                font-size: 11px;
+                            ">Clear All</button>
+                            <button class="legend-btn" style="
+                                padding: 4px 8px;
+                                border: 1px solid #ccc;
+                                background: white;
+                                cursor: pointer;
+                                font-size: 11px;
+                            ">Legend ▼</button>
+                            <div class="legend-dropdown" style="
+                                position: absolute;
+                                display: none;
+                                background: white;
+                                border: 1px solid #ccc;
+                                border-radius: 4px;
+                                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                                z-index: 1000;
+                                min-width: 100px;
+                                margin-top: 2px;
+                            ">
+                                <div class="legend-option" data-position="right" style="
+                                    padding: 8px 12px;
+                                    cursor: pointer;
+                                    font-size: 11px;
+                                    border-bottom: 1px solid #eee;
+                                ">Show Right</div>
+                                <div class="legend-option" data-position="bottom" style="
+                                    padding: 8px 12px;
+                                    cursor: pointer;
+                                    font-size: 11px;
+                                    border-bottom: 1px solid #eee;
+                                ">Show Bottom</div>
+                                <div class="legend-option" data-position="hidden" style="
+                                    padding: 8px 12px;
+                                    cursor: pointer;
+                                    font-size: 11px;
+                                ">Hide</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Chart Area -->
+                    <div class="chart-container" style="
+                        flex: 1;
+                        background: white;
+                        position: relative;
+                        overflow: auto;
+                    ">
+                        <!-- Granularity Indicator -->
+                        <div class="granularity-indicator" style="
+                            position: absolute;
+                            top: 10px;
+                            right: 15px;
+                            background: #f8f9fa;
+                            border: 1px solid #e9ecef;
+                            border-radius: 4px;
+                            padding: 6px 10px;
+                            font-size: 11px;
+                            color: #666;
+                            z-index: 10;
+                            max-width: 200px;
+                            text-align: right;
+                        "></div>
+
+                        <div class="chart-placeholder" style="
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            transform: translate(-50%, -50%);
+                            color: #999;
+                            font-size: 14px;
+                            text-align: center;
+                            z-index: 1;
+                        ">Add fields to X and Y to create chart</div>
+                        <div class="facet-grid" id="facetGrid" style="display: none;"></div>
+                        <div class="single-chart" style="width: 100%; height: 100%; padding: 20px;"></div>
+                    </div>
+                </div>
+
+                <!-- Legend Panel -->
+                <div class="legend-panel" style="
+                    width: 150px;
+                    background: white;
+                    border-left: 1px solid #e0e0e0;
+                    padding: 10px;
+                    display: none;
+                ">
+                    <h4 style="margin: 0 0 10px 0; font-size: 12px; color: #666;">Legend</h4>
+                    <div class="legend-content"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let db = null;
+        let conn = null;
+        let currentData = null;
+        let fieldInfo = {};
+        let charts = [];
+
+        // Widget state
+        let state = {
+            x: null,
+            y: null,
+            facetX: [],
+            facetY: [],
+            color: null,
+            size: null,
+            showLegend: true,
+            legendPosition: 'right',
+            fieldAggs: {},
+            markType: 'bar'
+        };
+
+        // Initialize DuckDB (simplified for now)
+        async function initializeDuckDB() {
+            console.log('Using in-memory processing (DuckDB integration coming soon)');
+            return false;
+        }
+
+        // Sample data generator
+        function generateSampleData() {
+            const regions = ['North', 'South', 'East', 'West'];
+            const products = ['Product A', 'Product B', 'Product C', 'Product D'];
+            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'];
+            const categories = ['Electronics', 'Clothing', 'Home', 'Sports'];
+            
+            const data = [];
+            for (let i = 0; i < 120; i++) {
+                data.push({
+                    Region: regions[Math.floor(Math.random() * regions.length)],
+                    Product: products[Math.floor(Math.random() * products.length)],
+                    Month: months[Math.floor(Math.random() * months.length)],
+                    Category: categories[Math.floor(Math.random() * categories.length)],
+                    Sales: Math.round((Math.random() * 4000 + 8000) * 100) / 100,
+                    Profit: Math.round((Math.random() * 1000 + 1500) * 100) / 100,
+                    Quantity: Math.floor(Math.random() * 90) + 10,
+                    Discount: Math.round(Math.random() * 0.3 * 1000) / 1000
+                });
+            }
+            return data;
+        }
+
+        // Parse CSV
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(v => v.trim().replace(/"/g, ''));
+                if (values.length === headers.length) {
+                    const row = {};
+                    headers.forEach((header, index) => {
+                        const value = values[index];
+                        const numValue = parseFloat(value);
+                        row[header] = !isNaN(numValue) && isFinite(numValue) ? numValue : value;
+                    });
+                    data.push(row);
+                }
+            }
+
+            return { headers, data };
+        }
+
+        // Load data
+        async function loadDataIntoDuckDB(data) {
+            console.log('Using in-memory processing');
+            currentData = data;
+            
+            fieldInfo = {};
+            if (data.length > 0) {
+                Object.keys(data[0]).forEach(field => {
+                    const sampleValues = data.slice(0, 10).map(row => row[field]);
+                    const isNumeric = sampleValues.every(val => 
+                        typeof val === 'number' || (!isNaN(parseFloat(val)) && isFinite(val))
+                    );
+                    fieldInfo[field] = { type: isNumeric ? 'numeric' : 'categorical' };
+                });
+            }
+            
+            console.log('Field info:', fieldInfo);
+            return true;
+        }
+
+        // Process file upload
+        async function handleFileUpload(file) {
+            showLoading(true);
+            
+            try {
+                const text = await file.text();
+                const { headers, data } = parseCSV(text);
+                
+                document.getElementById('fileInfo').style.display = 'block';
+                document.getElementById('fileInfo').innerHTML = `
+                    <strong>File:</strong> ${file.name}<br>
+                    <strong>Rows:</strong> ${data.length}<br>
+                    <strong>Columns:</strong> ${headers.join(', ')}
+                `;
+
+                const success = await loadDataIntoDuckDB(data);
+                if (success) {
+                    initializeWidget();
+                }
+            } catch (error) {
+                console.error('Error processing file:', error);
+                alert('Error processing file. Please check the format.');
+            }
+            
+            showLoading(false);
+        }
+
+        // Show/hide loading
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.getElementById('tableauWidget').style.display = show ? 'none' : 'flex';
+        }
+
+        // Initialize widget interface
+        function initializeWidget() {
+            document.getElementById('tableauWidget').style.display = 'flex';
+            
+            // Dispose existing charts
+            charts.forEach(chart => chart.dispose());
+            charts = [];
+            
+            initFieldsList();
+            setupDropZones();
+            setupControls();
+            
+            console.log('Widget initialized');
+        }
+
+        // Initialize fields list
+        function initFieldsList() {
+            const fieldsList = document.querySelector('.fields-list');
+            fieldsList.innerHTML = '';
+
+            Object.entries(fieldInfo).forEach(([field, info]) => {
+                const fieldItem = document.createElement('div');
+                fieldItem.className = 'field-item';
+                fieldItem.draggable = true;
+                fieldItem.dataset.field = field;
+
+                const bgColor = info.type === 'numeric' ? '#e8f5e8' : '#e8f0ff';
+                const textColor = info.type === 'numeric' ? '#2e7d2e' : '#2e5ce6';
+
+                fieldItem.style.cssText = `
+                    padding: 6px 8px;
+                    margin: 2px 0;
+                    background: ${bgColor};
+                    color: ${textColor};
+                    border-radius: 4px;
+                    cursor: move;
+                    font-size: 12px;
+                    user-select: none;
+                `;
+                fieldItem.textContent = field;
+
+                fieldItem.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', JSON.stringify({
+                        field: field,
+                        type: info.type,
+                        source: 'fields-list'
+                    }));
+                });
+
+                fieldsList.appendChild(fieldItem);
+            });
+        }
+
+        // Create field pill
+        function createFieldPill(field, aggregation = null) {
+            const fieldType = fieldInfo[field];
+            const isNumeric = fieldType?.type === 'numeric';
+            const displayAgg = aggregation || (isNumeric ? 'sum' : null);
+            const displayText = displayAgg ? `${displayAgg.toUpperCase()}(${field})` : field;
+
+            const pill = document.createElement('div');
+            pill.className = 'field-pill';
+            pill.draggable = true;
+            pill.dataset.field = field;
+            pill.dataset.aggregation = displayAgg || '';
+
+            const bgColor = isNumeric ? '#e8f5e8' : '#e8f0ff';
+            const textColor = isNumeric ? '#2e7d2e' : '#2e5ce6';
+
+            pill.style.cssText = `
+                background: ${bgColor};
+                color: ${textColor};
+            `;
+
+            if (isNumeric) {
+                const select = document.createElement('select');
+                select.style.cssText = `
+                    background: transparent;
+                    border: none;
+                    color: inherit;
+                    font-size: 11px;
+                    cursor: pointer;
+                    margin-right: 4px;
+                `;
+
+                ['sum', 'avg', 'count', 'min', 'max'].forEach(agg => {
+                    const option = document.createElement('option');
+                    option.value = agg;
+                    option.textContent = agg.toUpperCase();
+                    if (agg === displayAgg) option.selected = true;
+                    select.appendChild(option);
+                });
+
+                select.addEventListener('change', (e) => {
+                    e.stopPropagation();
+                    state.fieldAggs[field] = e.target.value;
+                    updateChart();
+                });
+
+                pill.appendChild(select);
+                pill.appendChild(document.createTextNode(`(${field})`));
+            } else {
+                pill.textContent = displayText;
+            }
+
+            const removeBtn = document.createElement('span');
+            removeBtn.textContent = '×';
+            removeBtn.className = 'remove-btn';
+            removeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                removeFieldFromShelf(pill.parentElement, field);
+            });
+            pill.appendChild(removeBtn);
+
+            return pill;
+        }
+
+        // Setup drop zones
+        function setupDropZones() {
+            const dropZones = document.querySelectorAll('.drop-zone');
+
+            dropZones.forEach(zone => {
+                zone.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    zone.classList.add('drag-over');
+                });
+
+                zone.addEventListener('dragleave', () => {
+                    zone.classList.remove('drag-over');
+                });
+
+                zone.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    zone.classList.remove('drag-over');
+
+                    const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+                    const { field, type, source } = data;
+
+                    if (source !== 'fields-list') {
+                        removeFieldFromState(field);
+                    }
+
+                    if (zone.classList.contains('x-shelf')) {
+                        state.x = { field, aggregation: type === 'numeric' ? 'sum' : null };
+                    } else if (zone.classList.contains('y-shelf')) {
+                        state.y = { field, aggregation: type === 'numeric' ? 'sum' : null };
+                    } else if (zone.classList.contains('facet-x-shelf')) {
+                        if (type !== 'numeric' && !state.facetX.some(f => f.field === field)) {
+                            state.facetX.push({ field, aggregation: null });
+                        }
+                    } else if (zone.classList.contains('facet-y-shelf')) {
+                        if (type !== 'numeric' && !state.facetY.some(f => f.field === field)) {
+                            state.facetY.push({ field, aggregation: null });
+                        }
+                    } else if (zone.classList.contains('color-shelf')) {
+                        state.color = { field, aggregation: type === 'numeric' ? 'sum' : null };
+                    } else if (zone.classList.contains('size-shelf')) {
+                        state.size = { field, aggregation: type === 'numeric' ? 'sum' : null };
+                    }
+
+                    updateShelves();
+                    updateChart();
+                });
+            });
+        }
+
+        // Setup pill dragging
+        function setupPillDrag(pill) {
+            pill.addEventListener('dragstart', (e) => {
+                const field = pill.dataset.field;
+                const fieldType = fieldInfo[field];
+                e.dataTransfer.setData('text/plain', JSON.stringify({
+                    field: field,
+                    type: fieldType.type,
+                    source: 'shelf'
+                }));
+            });
+        }
+
+        // Remove field from shelf
+        function removeFieldFromShelf(shelf, field) {
+            if (shelf.classList.contains('x-shelf')) {
+                state.x = null;
+            } else if (shelf.classList.contains('y-shelf')) {
+                state.y = null;
+            } else if (shelf.classList.contains('facet-x-shelf')) {
+                state.facetX = state.facetX.filter(f => f.field !== field);
+            } else if (shelf.classList.contains('facet-y-shelf')) {
+                state.facetY = state.facetY.filter(f => f.field !== field);
+            } else if (shelf.classList.contains('color-shelf')) {
+                state.color = null;
+            } else if (shelf.classList.contains('size-shelf')) {
+                state.size = null;
+            }
+
+            delete state.fieldAggs[field];
+            updateShelves();
+            updateChart();
+        }
+
+        // Remove field from state
+        function removeFieldFromState(field) {
+            if (state.x?.field === field) state.x = null;
+            if (state.y?.field === field) state.y = null;
+            state.facetX = state.facetX.filter(f => f.field !== field);
+            state.facetY = state.facetY.filter(f => f.field !== field);
+            if (state.color?.field === field) state.color = null;
+            if (state.size?.field === field) state.size = null;
+        }
+
+        // Update shelf displays
+        function updateShelves() {
+            const xShelf = document.querySelector('.x-shelf');
+            const yShelf = document.querySelector('.y-shelf');
+            const facetXShelf = document.querySelector('.facet-x-shelf');
+            const facetYShelf = document.querySelector('.facet-y-shelf');
+            const colorShelf = document.querySelector('.color-shelf');
+            const sizeShelf = document.querySelector('.size-shelf');
+
+            [xShelf, yShelf, facetXShelf, facetYShelf, colorShelf, sizeShelf].forEach(shelf => {
+                shelf.querySelectorAll('.field-pill').forEach(pill => pill.remove());
+            });
+
+            if (state.x) {
+                const pill = createFieldPill(state.x.field, state.fieldAggs[state.x.field] || state.x.aggregation);
+                setupPillDrag(pill);
+                xShelf.appendChild(pill);
+            }
+
+            if (state.y) {
+                const pill = createFieldPill(state.y.field, state.fieldAggs[state.y.field] || state.y.aggregation);
+                setupPillDrag(pill);
+                yShelf.appendChild(pill);
+            }
+
+            state.facetX.forEach(facet => {
+                const pill = createFieldPill(facet.field, facet.aggregation);
+                setupPillDrag(pill);
+                facetXShelf.appendChild(pill);
+            });
+
+            state.facetY.forEach(facet => {
+                const pill = createFieldPill(facet.field, facet.aggregation);
+                setupPillDrag(pill);
+                facetYShelf.appendChild(pill);
+            });
+
+            if (state.color) {
+                const pill = createFieldPill(state.color.field, state.fieldAggs[state.color.field] || state.color.aggregation);
+                setupPillDrag(pill);
+                colorShelf.appendChild(pill);
+            }
+
+            if (state.size) {
+                const pill = createFieldPill(state.size.field, state.fieldAggs[state.size.field] || state.size.aggregation);
+                setupPillDrag(pill);
+                sizeShelf.appendChild(pill);
+            }
+        }
+
+        // Setup controls
+        function setupControls() {
+            const chartTypeSelect = document.querySelector('.chart-type');
+            chartTypeSelect.addEventListener('change', (e) => {
+                state.markType = e.target.value;
+                updateChart();
+            });
+
+            document.querySelector('.swap-btn').addEventListener('click', () => {
+                [state.x, state.y] = [state.y, state.x];
+                updateShelves();
+                updateChart();
+            });
+
+            document.querySelector('.clear-btn').addEventListener('click', () => {
+                state.x = null;
+                state.y = null;
+                state.facetX = [];
+                state.facetY = [];
+                state.color = null;
+                state.size = null;
+                state.fieldAggs = {};
+                updateShelves();
+                updateChart();
+            });
+
+            const legendBtn = document.querySelector('.legend-btn');
+            const legendDropdown = document.querySelector('.legend-dropdown');
+            
+            legendBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                legendDropdown.style.display = legendDropdown.style.display === 'none' ? 'block' : 'none';
+            });
+
+            document.addEventListener('click', () => {
+                legendDropdown.style.display = 'none';
+            });
+
+            document.querySelectorAll('.legend-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    state.legendPosition = option.dataset.position;
+                    state.showLegend = state.legendPosition !== 'hidden';
+                    legendDropdown.style.display = 'none';
+                    updateChart();
+                });
+            });
+        }
+
+        // Update chart
+        async function updateChart() {
+            const placeholder = document.querySelector('.chart-placeholder');
+            const facetGrid = document.getElementById('facetGrid');
+            const singleChart = document.querySelector('.single-chart');
+
+            // Clear existing charts
+            charts.forEach(chart => chart.dispose());
+            charts = [];
+
+            if (!state.x && !state.y) {
+                placeholder.style.display = 'block';
+                facetGrid.style.display = 'none';
+                singleChart.style.display = 'block';
+                return;
+            }
+
+            placeholder.style.display = 'none';
+
+            try {
+                const queryData = processDataInMemory();
+                
+                if (!queryData || queryData.length === 0) {
+                    placeholder.style.display = 'block';
+                    placeholder.textContent = 'No data to display';
+                    facetGrid.style.display = 'none';
+                    singleChart.style.display = 'block';
+                    return;
+                }
+
+                // Check if we need faceting
+                const needsFaceting = state.facetX.length > 0 || state.facetY.length > 0;
+
+                if (needsFaceting) {
+                    facetGrid.style.display = 'block';
+                    singleChart.style.display = 'none';
+                    renderFacetedCharts(queryData);
+                } else {
+                    facetGrid.style.display = 'none';
+                    singleChart.style.display = 'block';
+                    const chartData = generateChartData(queryData);
+                    
+                    if (chartData) {
+                        const chartEl = singleChart.querySelector('.chart') || createChartElement(singleChart);
+                        const chart = echarts.init(chartEl);
+                        charts.push(chart);
+                        renderChart(chart, chartData);
+                    } else {
+                        placeholder.style.display = 'block';
+                        placeholder.textContent = 'Unable to generate chart';
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating chart:', error);
+                placeholder.style.display = 'block';
+                placeholder.textContent = 'Error generating chart';
+            }
+        }
+
+        // Create chart element
+        function createChartElement(container) {
+            let chartEl = container.querySelector('.chart');
+            if (!chartEl) {
+                chartEl = document.createElement('div');
+                chartEl.className = 'chart';
+                chartEl.style.cssText = 'width: 100%; height: 100%;';
+                container.appendChild(chartEl);
+            }
+            return chartEl;
+        }
+
+        // Render faceted charts - FIXED horizontal scrolling
+        function renderFacetedCharts(data) {
+            const facetGrid = document.getElementById('facetGrid');
+            facetGrid.innerHTML = '';
+
+            // SWAPPED: Facet X controls rows, Facet Y controls columns (fixed logic)
+            const facetXValues = state.facetX.length > 0 ? [...new Set(data.map(row => 
+                state.facetX.map(f => String(row[f.field] || 'Unknown')).join(' | ')
+            ))].sort() : ['All'];
+            
+            const facetYValues = state.facetY.length > 0 ? [...new Set(data.map(row => 
+                state.facetY.map(f => String(row[f.field] || 'Unknown')).join(' | ')
+            ))].sort() : ['All'];
+
+            // SWAPPED: X facets create rows, Y facets create columns
+            const rows = facetXValues.length;
+            const cols = facetYValues.length;
+
+            console.log('Creating facet grid (optimized):', { 
+                facetX: state.facetX.map(f => f.field) + ' (rows)', 
+                facetY: state.facetY.map(f => f.field) + ' (cols)',
+                rows, cols, 
+                facetXValues, 
+                facetYValues 
+            });
+
+            // Set up scrollable container with fixed dimensions
+            facetGrid.style.display = 'block';
+            facetGrid.style.overflow = 'auto';
+            facetGrid.style.height = '100%';
+            facetGrid.style.width = '100%';
+            facetGrid.style.position = 'relative';
+
+            // Create inner grid container with explicit dimensions
+            const gridContainer = document.createElement('div');
+            gridContainer.style.display = 'grid';
+            
+            // Fixed sizes for better scrolling experience
+            const cellWidth = 200;
+            const cellHeight = 180;
+            const headerWidth = 80;
+            const headerHeight = 40;
+            
+            gridContainer.style.gridTemplateColumns = state.facetX.length > 0 ? 
+                `${headerWidth}px repeat(${cols}, ${cellWidth}px)` : 
+                `repeat(${cols}, ${cellWidth}px)`;
+            gridContainer.style.gridTemplateRows = state.facetY.length > 0 ? 
+                `${headerHeight}px repeat(${rows}, ${cellHeight}px)` : 
+                `repeat(${rows}, ${cellHeight}px)`;
+            gridContainer.style.gap = '2px';
+            gridContainer.style.backgroundColor = '#e0e0e0';
+            gridContainer.style.padding = '10px';
+            
+            // CRITICAL: Set explicit width and height to force scrollbars
+            const totalWidth = (state.facetX.length > 0 ? headerWidth : 0) + (cols * cellWidth) + (cols * 2) + 20;
+            const totalHeight = (state.facetY.length > 0 ? headerHeight : 0) + (rows * cellHeight) + (rows * 2) + 20;
+            
+            gridContainer.style.width = `${totalWidth}px`;
+            gridContainer.style.height = `${totalHeight}px`;
+            gridContainer.style.minWidth = `${totalWidth}px`;
+            gridContainer.style.minHeight = `${totalHeight}px`;
+            
+            facetGrid.appendChild(gridContainer);
+
+            // Add empty corner cell if we have both X and Y facets
+            if (state.facetX.length > 0 && state.facetY.length > 0) {
+                const cornerCell = document.createElement('div');
+                cornerCell.style.cssText = `
+                    grid-column: 1;
+                    grid-row: 1;
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    position: sticky;
+                    top: 10px;
+                    left: 10px;
+                    z-index: 30;
+                    width: ${headerWidth}px;
+                    height: ${headerHeight}px;
+                    box-sizing: border-box;
+                `;
+                gridContainer.appendChild(cornerCell);
+            }
+
+            // Add column headers (Facet Y labels) - SWAPPED - make them sticky
+            if (state.facetY.length > 0) {
+                facetYValues.forEach((yValue, colIndex) => {
+                    const colHeader = document.createElement('div');
+                    const gridCol = state.facetX.length > 0 ? colIndex + 2 : colIndex + 1;
+                    colHeader.style.cssText = `
+                        grid-column: ${gridCol};
+                        grid-row: 1;
+                        background: #f8f9fa;
+                        border: 1px solid #dee2e6;
+                        padding: 8px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        color: #495057;
+                        text-align: center;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        overflow: hidden;
+                        text-overflow: ellipsis;
+                        white-space: nowrap;
+                        position: sticky;
+                        top: 10px;
+                        z-index: 20;
+                        width: ${cellWidth}px;
+                        height: ${headerHeight}px;
+                        box-sizing: border-box;
+                    `;
+                    colHeader.textContent = yValue;
+                    colHeader.title = yValue; // Tooltip for long names
+                    gridContainer.appendChild(colHeader);
+                });
+            }
+
+            // Pre-filter data for performance
+            const dataByFacet = new Map();
+            data.forEach(row => {
+                const xKey = state.facetX.length > 0 ? 
+                    state.facetX.map(f => String(row[f.field] || 'Unknown')).join(' | ') : 'All';
+                const yKey = state.facetY.length > 0 ? 
+                    state.facetY.map(f => String(row[f.field] || 'Unknown')).join(' | ') : 'All';
+                const key = `${xKey}|||${yKey}`;
+                
+                if (!dataByFacet.has(key)) {
+                    dataByFacet.set(key, []);
+                }
+                dataByFacet.get(key).push(row);
+            });
+
+            // Add row headers (Facet X labels) and charts - SWAPPED - make row headers sticky
+            facetXValues.forEach((xValue, rowIndex) => {
+                const gridRow = state.facetY.length > 0 ? rowIndex + 2 : rowIndex + 1;
+
+                // Add row header if we have X facets - SWAPPED - sticky left
+                if (state.facetX.length > 0) {
+                    const rowHeader = document.createElement('div');
+                    rowHeader.style.cssText = `
+                        grid-column: 1;
+                        grid-row: ${gridRow};
+                        background: #f8f9fa;
+                        border: 1px solid #dee2e6;
+                        padding: 8px;
+                        font-size: 11px;
+                        font-weight: 600;
+                        color: #495057;
+                        writing-mode: vertical-rl;
+                        text-orientation: mixed;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        overflow: hidden;
+                        position: sticky;
+                        left: 10px;
+                        z-index: 10;
+                        width: ${headerWidth}px;
+                        height: ${cellHeight}px;
+                        box-sizing: border-box;
+                    `;
+                    rowHeader.textContent = xValue;
+                    rowHeader.title = xValue; // Tooltip for long names
+                    gridContainer.appendChild(rowHeader);
+                }
+
+                // Add charts for this row - SWAPPED iteration order
+                facetYValues.forEach((yValue, colIndex) => {
+                    const gridCol = state.facetX.length > 0 ? colIndex + 2 : colIndex + 1;
+                    
+                    // Get pre-filtered data for this specific facet combination
+                    const facetKey = `${xValue}|||${yValue}`;
+                    const facetData = dataByFacet.get(facetKey) || [];
+                    
+                    const chartContainer = document.createElement('div');
+                    chartContainer.style.cssText = `
+                        grid-column: ${gridCol};
+                        grid-row: ${gridRow};
+                        background: white;
+                        border: 1px solid #dee2e6;
+                        width: ${cellWidth}px;
+                        height: ${cellHeight}px;
+                        padding: 8px;
+                        display: flex;
+                        flex-direction: column;
+                        box-sizing: border-box;
+                    `;
+
+                    // Create chart element with fixed size
+                    const chartEl = document.createElement('div');
+                    chartEl.style.cssText = 'width: 100%; flex: 1; min-height: 140px;';
+                    chartContainer.appendChild(chartEl);
+
+                    gridContainer.appendChild(chartContainer);
+
+                    // Use requestAnimationFrame for better performance
+                    requestAnimationFrame(() => {
+                        if (facetData.length > 0) {
+                            const chartData = generateChartData(facetData);
+                            
+                            if (chartData) {
+                                const chart = echarts.init(chartEl, null, { 
+                                    renderer: 'canvas', // Force canvas for better performance
+                                    devicePixelRatio: 1 // Reduce pixel ratio for performance
+                                });
+                                charts.push(chart);
+                                renderChart(chart, chartData, true); // true for faceted mode
+                            }
+                        } else {
+                            // Show "No data" message
+                            chartEl.style.cssText += 'display: flex; align-items: center; justify-content: center; color: #6c757d; font-size: 12px;';
+                            chartEl.textContent = 'No data';
+                        }
+                    });
+                });
+            });
+        }
+
+        // Filter data for specific facet - FIXED LOGIC
+        function filterDataForFacet(data, xFacetValue, yFacetValue) {
+            return data.filter(row => {
+                let xMatch = true;
+                let yMatch = true;
+
+                // SWAPPED: X facet controls rows, Y facet controls columns
+                if (state.facetX.length > 0 && xFacetValue && xFacetValue !== 'All') {
+                    const rowXValue = state.facetX.map(f => String(row[f.field] || 'Unknown')).join(' | ');
+                    xMatch = rowXValue === xFacetValue;
+                }
+
+                if (state.facetY.length > 0 && yFacetValue && yFacetValue !== 'All') {
+                    const rowYValue = state.facetY.map(f => String(row[f.field] || 'Unknown')).join(' | ');
+                    yMatch = rowYValue === yFacetValue;
+                }
+
+                return xMatch && yMatch;
+            });
+        }
+
+        // In-memory data processing
+        function processDataInMemory() {
+            if (!currentData) return [];
+
+            const groupFields = [];
+            const aggFields = {};
+
+            // Add X and Y fields
+            if (state.x) {
+                const fieldType = fieldInfo[state.x.field]?.type;
+                const hasAggregation = state.fieldAggs[state.x.field] || state.x.aggregation;
+                
+                if (fieldType === 'numeric' && hasAggregation) {
+                    aggFields[state.x.field] = hasAggregation;
+                } else {
+                    if (!groupFields.includes(state.x.field)) {
+                        groupFields.push(state.x.field);
+                    }
+                }
+            }
+
+            if (state.y) {
+                const fieldType = fieldInfo[state.y.field]?.type;
+                const hasAggregation = state.fieldAggs[state.y.field] || state.y.aggregation;
+                
+                if (fieldType === 'numeric' && hasAggregation) {
+                    aggFields[state.y.field] = hasAggregation;
+                } else {
+                    if (!groupFields.includes(state.y.field)) {
+                        groupFields.push(state.y.field);
+                    }
+                }
+            }
+
+            // Add facet fields
+            [...state.facetX, ...state.facetY].forEach(facet => {
+                if (!groupFields.includes(facet.field)) {
+                    groupFields.push(facet.field);
+                }
+            });
+
+            // Add color field if categorical
+            if (state.color && fieldInfo[state.color.field]?.type === 'categorical') {
+                if (!groupFields.includes(state.color.field)) {
+                    groupFields.push(state.color.field);
+                }
+            }
+
+            if (groupFields.length === 0) {
+                return currentData;
+            }
+
+            if (Object.keys(aggFields).length === 0) {
+                const seen = new Set();
+                const result = [];
+                
+                currentData.forEach(row => {
+                    const key = groupFields.map(field => String(row[field] || '')).join('|||');
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        const newRow = {};
+                        groupFields.forEach(field => {
+                            newRow[field] = row[field];
+                        });
+                        result.push(newRow);
+                    }
+                });
+                
+                return result;
+            }
+
+            const grouped = {};
+
+            currentData.forEach(row => {
+                const groupKey = groupFields.map(field => String(row[field] || '')).join('|||');
+                
+                if (!grouped[groupKey]) {
+                    grouped[groupKey] = {};
+                    groupFields.forEach(field => {
+                        grouped[groupKey][field] = row[field];
+                    });
+                    
+                    Object.keys(aggFields).forEach(field => {
+                        grouped[groupKey][`_${field}_values`] = [];
+                    });
+                }
+                
+                Object.keys(aggFields).forEach(field => {
+                    const value = parseFloat(row[field]);
+                    if (!isNaN(value) && isFinite(value)) {
+                        grouped[groupKey][`_${field}_values`].push(value);
+                    }
+                });
+            });
+
+            const result = Object.values(grouped).map(group => {
+                const finalRow = {};
+                
+                groupFields.forEach(field => {
+                    finalRow[field] = group[field];
+                });
+                
+                Object.entries(aggFields).forEach(([field, aggType]) => {
+                    const values = group[`_${field}_values`] || [];
+                    
+                    if (values.length > 0) {
+                        switch (aggType.toLowerCase()) {
+                            case 'sum':
+                                finalRow[field] = values.reduce((a, b) => a + b, 0);
+                                break;
+                            case 'avg':
+                            case 'average':
+                                finalRow[field] = values.reduce((a, b) => a + b, 0) / values.length;
+                                break;
+                            case 'count':
+                                finalRow[field] = values.length;
+                                break;
+                            case 'min':
+                                finalRow[field] = Math.min(...values);
+                                break;
+                            case 'max':
+                                finalRow[field] = Math.max(...values);
+                                break;
+                            default:
+                                finalRow[field] = values.reduce((a, b) => a + b, 0);
+                        }
+                    } else {
+                        finalRow[field] = 0;
+                    }
+                });
+                
+                return finalRow;
+            });
+
+            return result;
+        }
+
+        // Generate chart data from query results
+        function generateChartData(data) {
+            if (!data || data.length === 0) return null;
+
+            const xField = state.x?.field;
+            const yField = state.y?.field;
+            const colorField = state.color?.field;
+
+            if (xField && yField) {
+                return generateTwoFieldChart(data, xField, yField, colorField);
+            } else if (xField) {
+                return generateSingleFieldChart(data, xField, 'horizontal');
+            } else if (yField) {
+                return generateSingleFieldChart(data, yField, 'vertical');
+            }
+
+            return null;
+        }
+
+        // Generate two-field chart
+        function generateTwoFieldChart(data, xField, yField, colorField) {
+            const xIsNumeric = fieldInfo[xField]?.type === 'numeric';
+            const yIsNumeric = fieldInfo[yField]?.type === 'numeric';
+
+            if (state.markType === 'scatter' && xIsNumeric && yIsNumeric) {
+                return generateScatterPlot(data, xField, yField, colorField);
+            }
+
+            if (!xIsNumeric && yIsNumeric) {
+                // X is categorical, Y is numeric - vertical bars
+                return generateCategoricalNumericChart(data, xField, yField, colorField, false);
+            } else if (xIsNumeric && !yIsNumeric) {
+                // X is numeric, Y is categorical - horizontal bars
+                return generateCategoricalNumericChart(data, yField, xField, colorField, true);
+            } else if (!xIsNumeric && !yIsNumeric) {
+                return generateCategoricalChart(data, xField, yField);
+            } else {
+                // Both numeric - treat as scatter by default
+                return generateScatterPlot(data, xField, yField, colorField);
+            }
+        }
+
+        // Generate scatter plot
+        function generateScatterPlot(data, xField, yField, colorField) {
+            if (colorField && fieldInfo[colorField]?.type === 'categorical') {
+                const colorMap = {};
+                const allColors = [...new Set(data.map(row => String(row[colorField] || 'Unknown')))].sort();
+                const colorPalette = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
+
+                const series = allColors.map((colorVal, i) => {
+                    const colorData = data.filter(row => String(row[colorField] || 'Unknown') === colorVal);
+                    const scatterData = colorData.map(row => [row[xField] || 0, row[yField] || 0]);
+
+                    return {
+                        name: colorVal,
+                        type: 'scatter',
+                        data: scatterData,
+                        itemStyle: { color: colorPalette[i % colorPalette.length] }
+                    };
+                });
+
+                return {
+                    xAxis: { type: 'value', name: xField },
+                    yAxis: { type: 'value', name: yField },
+                    series: series,
+                    legend: allColors.map((val, i) => ({
+                        name: val,
+                        color: colorPalette[i % colorPalette.length]
+                    }))
+                };
+            } else {
+                const scatterData = data.map(row => [row[xField] || 0, row[yField] || 0]);
+                
+                return {
+                    xAxis: { type: 'value', name: xField },
+                    yAxis: { type: 'value', name: yField },
+                    series: [{
+                        type: 'scatter',
+                        data: scatterData,
+                        itemStyle: { color: '#5470c6' }
+                    }]
+                };
+            }
+        }
+
+        // Generate categorical-numeric chart
+        function generateCategoricalNumericChart(data, catField, numField, colorField, isHorizontal) {
+            const categoryValueMap = {};
+            
+            data.forEach(row => {
+                const category = String(row[catField] || 'Unknown');
+                const value = parseFloat(row[numField]) || 0;
+                
+                if (!categoryValueMap[category]) {
+                    categoryValueMap[category] = 0;
+                }
+                categoryValueMap[category] += value;
+            });
+
+            const categories = Object.keys(categoryValueMap).sort();
+            const values = categories.map(cat => categoryValueMap[cat]);
+
+            if (colorField && fieldInfo[colorField]?.type === 'categorical') {
+                return generateColoredCategoricalChart(data, catField, numField, colorField, isHorizontal);
+            }
+
+            // Fix scatter plot rendering for categorical-numeric charts
+            const chartType = state.markType === 'scatter' ? 'scatter' : state.markType;
+            
+            if (chartType === 'scatter') {
+                // For scatter plots with categorical data, create scatter points
+                const scatterData = categories.map((cat, index) => [index, values[index]]);
+                
+                if (isHorizontal) {
+                    return {
+                        xAxis: { type: 'value', name: numField },
+                        yAxis: { 
+                            type: 'category', 
+                            data: categories, 
+                            name: catField,
+                            axisLabel: { interval: 0, fontSize: 10 }
+                        },
+                        series: [{
+                            type: 'scatter',
+                            data: values.map((val, idx) => [val, idx]),
+                            itemStyle: { color: '#5470c6' }
+                        }]
+                    };
+                } else {
+                    return {
+                        xAxis: { 
+                            type: 'category', 
+                            data: categories, 
+                            name: catField,
+                            axisLabel: { 
+                                interval: 0, 
+                                rotate: categories.some(cat => cat.length > 8) ? 45 : 0,
+                                fontSize: 10
+                            }
+                        },
+                        yAxis: { type: 'value', name: numField },
+                        series: [{
+                            type: 'scatter',
+                            data: scatterData,
+                            itemStyle: { color: '#5470c6' }
+                        }]
+                    };
+                }
+            }
+
+            if (isHorizontal) {
+                // Horizontal bars: categories on Y-axis, values on X-axis
+                return {
+                    xAxis: { type: 'value', name: numField },
+                    yAxis: { 
+                        type: 'category', 
+                        data: categories, 
+                        name: catField,
+                        axisLabel: { interval: 0, fontSize: 10 }
+                    },
+                    series: [{
+                        type: chartType,
+                        data: values,
+                        itemStyle: { color: '#5470c6' }
+                    }]
+                };
+            } else {
+                // Vertical bars: categories on X-axis, values on Y-axis  
+                return {
+                    xAxis: { 
+                        type: 'category', 
+                        data: categories, 
+                        name: catField,
+                        axisLabel: { 
+                            interval: 0, 
+                            rotate: categories.some(cat => cat.length > 8) ? 45 : 0,
+                            fontSize: 10
+                        }
+                    },
+                    yAxis: { type: 'value', name: numField },
+                    series: [{
+                        type: chartType,
+                        data: values,
+                        itemStyle: { color: '#5470c6' }
+                    }]
+                };
+            }
+        }
+
+        // Generate colored categorical chart
+        function generateColoredCategoricalChart(data, catField, numField, colorField, isHorizontal) {
+            const categoryColorValueMap = {};
+            const allCategories = new Set();
+            const allColors = new Set();
+
+            data.forEach(row => {
+                const category = String(row[catField] || 'Unknown');
+                const color = String(row[colorField] || 'Unknown');
+                const value = parseFloat(row[numField]) || 0;
+
+                allCategories.add(category);
+                allColors.add(color);
+
+                if (!categoryColorValueMap[category]) {
+                    categoryColorValueMap[category] = {};
+                }
+                if (!categoryColorValueMap[category][color]) {
+                    categoryColorValueMap[category][color] = 0;
+                }
+                categoryColorValueMap[category][color] += value;
+            });
+
+            const categories = Array.from(allCategories).sort();
+            const colorValues = Array.from(allColors).sort();
+            const colorPalette = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc'];
+
+            // Fix scatter plot rendering for colored categorical charts
+            const chartType = state.markType === 'scatter' ? 'scatter' : state.markType;
+
+            if (chartType === 'scatter') {
+                // For scatter plots with colored categorical data
+                const series = colorValues.map((colorVal, i) => {
+                    const scatterData = categories.map((cat, catIndex) => {
+                        const value = categoryColorValueMap[cat]?.[colorVal] || 0;
+                        return value > 0 ? (isHorizontal ? [value, catIndex] : [catIndex, value]) : null;
+                    }).filter(point => point !== null);
+
+                    return {
+                        name: colorVal,
+                        type: 'scatter',
+                        data: scatterData,
+                        itemStyle: { color: colorPalette[i % colorPalette.length] }
+                    };
+                });
+
+                if (isHorizontal) {
+                    return {
+                        xAxis: { type: 'value', name: numField },
+                        yAxis: { 
+                            type: 'category', 
+                            data: categories, 
+                            name: catField,
+                            axisLabel: { interval: 0, fontSize: 10 }
+                        },
+                        series: series,
+                        legend: colorValues.map((val, i) => ({
+                            name: val,
+                            color: colorPalette[i % colorPalette.length]
+                        }))
+                    };
+                } else {
+                    return {
+                        xAxis: { 
+                            type: 'category', 
+                            data: categories, 
+                            name: catField,
+                            axisLabel: { 
+                                interval: 0, 
+                                rotate: categories.some(cat => cat.length > 8) ? 45 : 0,
+                                fontSize: 10
+                            }
+                        },
+                        yAxis: { type: 'value', name: numField },
+                        series: series,
+                        legend: colorValues.map((val, i) => ({
+                            name: val,
+                            color: colorPalette[i % colorPalette.length]
+                        }))
+                    };
+                }
+            }
+
+            const series = colorValues.map((colorVal, i) => {
+                const values = categories.map(cat => categoryColorValueMap[cat]?.[colorVal] || 0);
+
+                return {
+                    name: colorVal,
+                    type: chartType,
+                    data: values,
+                    itemStyle: { color: colorPalette[i % colorPalette.length] }
+                };
+            });
+
+            if (isHorizontal) {
+                return {
+                    xAxis: { type: 'value', name: numField },
+                    yAxis: { 
+                        type: 'category', 
+                        data: categories, 
+                        name: catField,
+                        axisLabel: { interval: 0, fontSize: 10 }
+                    },
+                    series: series,
+                    legend: colorValues.map((val, i) => ({
+                        name: val,
+                        color: colorPalette[i % colorPalette.length]
+                    }))
+                };
+            } else {
+                return {
+                    xAxis: { 
+                        type: 'category', 
+                        data: categories, 
+                        name: catField,
+                        axisLabel: { 
+                            interval: 0, 
+                            rotate: categories.some(cat => cat.length > 8) ? 45 : 0,
+                            fontSize: 10
+                        }
+                    },
+                    yAxis: { type: 'value', name: numField },
+                    series: series,
+                    legend: colorValues.map((val, i) => ({
+                        name: val,
+                        color: colorPalette[i % colorPalette.length]
+                    }))
+                };
+            }
+        }
+
+        // Generate categorical chart (both fields are categorical)
+        function generateCategoricalChart(data, xField, yField) {
+            const combinationCounts = {};
+            const xCategories = new Set();
+            const yCategories = new Set();
+
+            data.forEach(row => {
+                const x = String(row[xField] || 'Unknown');
+                const y = String(row[yField] || 'Unknown');
+                const key = `${x}|||${y}`;
+                
+                xCategories.add(x);
+                yCategories.add(y);
+                combinationCounts[key] = (combinationCounts[key] || 0) + 1;
+            });
+
+            const xCats = Array.from(xCategories).sort();
+            const yCats = Array.from(yCategories).sort();
+
+            // Create heatmap data
+            const heatmapData = [];
+            yCats.forEach((y, yIndex) => {
+                xCats.forEach((x, xIndex) => {
+                    const count = combinationCounts[`${x}|||${y}`] || 0;
+                    heatmapData.push([xIndex, yIndex, count]);
+                });
+            });
+
+            return {
+                xAxis: { 
+                    type: 'category', 
+                    data: xCats, 
+                    name: xField,
+                    axisLabel: { interval: 0, fontSize: 10 }
+                },
+                yAxis: { 
+                    type: 'category', 
+                    data: yCats, 
+                    name: yField,
+                    axisLabel: { interval: 0, fontSize: 10 }
+                },
+                series: [{
+                    type: 'heatmap',
+                    data: heatmapData,
+                    itemStyle: {
+                        borderColor: '#fff',
+                        borderWidth: 1
+                    }
+                }],
+                visualMap: {
+                    min: 0,
+                    max: Math.max(...Object.values(combinationCounts)),
+                    calculable: true,
+                    orient: 'horizontal',
+                    left: 'center',
+                    bottom: '5%'
+                }
+            };
+        }
+
+        // Generate single field chart
+        function generateSingleFieldChart(data, field, orientation) {
+            const isNumeric = fieldInfo[field]?.type === 'numeric';
+
+            if (isNumeric) {
+                const total = data.reduce((sum, row) => sum + (row[field] || 0), 0);
+                const chartType = state.markType === 'scatter' ? 'bar' : state.markType;
+                
+                if (orientation === 'horizontal') {
+                    // Field is on X-axis (horizontal orientation)
+                    return {
+                        xAxis: { type: 'value', name: field },
+                        yAxis: { type: 'category', data: ['Total'] },
+                        series: [{ 
+                            type: chartType, 
+                            data: [total], 
+                            itemStyle: { color: '#5470c6' } 
+                        }]
+                    };
+                } else {
+                    // Field is on Y-axis (vertical orientation)
+                    return {
+                        xAxis: { type: 'category', data: ['Total'] },
+                        yAxis: { type: 'value', name: field },
+                        series: [{ 
+                            type: chartType, 
+                            data: [total], 
+                            itemStyle: { color: '#5470c6' } 
+                        }]
+                    };
+                }
+            } else {
+                const counts = {};
+                data.forEach(row => {
+                    const val = String(row[field] || 'Unknown');
+                    counts[val] = (counts[val] || 0) + 1;
+                });
+
+                const categories = Object.keys(counts).sort();
+                const values = categories.map(cat => counts[cat]);
+                const chartType = state.markType === 'scatter' ? 'scatter' : state.markType;
+
+                if (chartType === 'scatter') {
+                    if (orientation === 'horizontal') {
+                        return {
+                            xAxis: { type: 'value', name: 'Count' },
+                            yAxis: { 
+                                type: 'category', 
+                                data: categories, 
+                                name: field,
+                                axisLabel: { interval: 0, fontSize: 10 }
+                            },
+                            series: [{ 
+                                type: 'scatter', 
+                                data: values.map((val, idx) => [val, idx]), 
+                                itemStyle: { color: '#5470c6' } 
+                            }]
+                        };
+                    } else {
+                        return {
+                            xAxis: { 
+                                type: 'category', 
+                                data: categories, 
+                                name: field,
+                                axisLabel: { 
+                                    interval: 0, 
+                                    rotate: categories.some(cat => cat.length > 8) ? 45 : 0,
+                                    fontSize: 10
+                                }
+                            },
+                            yAxis: { type: 'value', name: 'Count' },
+                            series: [{ 
+                                type: 'scatter', 
+                                data: categories.map((cat, idx) => [idx, values[idx]]), 
+                                itemStyle: { color: '#5470c6' } 
+                            }]
+                        };
+                    }
+                }
+
+                if (orientation === 'horizontal') {
+                    // Field is on X-axis, but we show categories on Y for horizontal bars
+                    return {
+                        xAxis: { type: 'value', name: 'Count' },
+                        yAxis: { 
+                            type: 'category', 
+                            data: categories, 
+                            name: field,
+                            axisLabel: { interval: 0, fontSize: 10 }
+                        },
+                        series: [{ 
+                            type: chartType, 
+                            data: values, 
+                            itemStyle: { color: '#5470c6' } 
+                        }]
+                    };
+                } else {
+                    // Field is on Y-axis, but we show categories on X for vertical bars
+                    return {
+                        xAxis: { 
+                            type: 'category', 
+                            data: categories, 
+                            name: field,
+                            axisLabel: { 
+                                interval: 0, 
+                                rotate: categories.some(cat => cat.length > 8) ? 45 : 0,
+                                fontSize: 10
+                            }
+                        },
+                        yAxis: { type: 'value', name: 'Count' },
+                        series: [{ 
+                            type: chartType, 
+                            data: values, 
+                            itemStyle: { color: '#5470c6' } 
+                        }]
+                    };
+                }
+            }
+        }
+
+        // Render chart - optimized for faceted mode with better axis labels
+        function renderChart(chart, chartData, isFaceted = false) {
+            if (!chartData || !chart) return;
+
+            let legendConfig = null;
+            let gridConfig = isFaceted ? 
+                { left: 45, right: 10, top: 10, bottom: 30 } : 
+                { left: 60, right: 30, top: 30, bottom: 50 };
+
+            if (!isFaceted && state.showLegend && chartData.legend && state.legendPosition !== 'hidden') {
+                if (state.legendPosition === 'right') {
+                    legendConfig = {
+                        orient: 'vertical',
+                        right: 10,
+                        top: 'center'
+                    };
+                    gridConfig.right = 100;
+                } else if (state.legendPosition === 'bottom') {
+                    legendConfig = {
+                        orient: 'horizontal',
+                        bottom: 10,
+                        left: 'center'
+                    };
+                    gridConfig.bottom = 80;
+                }
+            }
+
+            // Enhanced axis configuration for better visibility in faceted mode
+            const xAxisConfig = {
+                ...chartData.xAxis,
+                axisLabel: {
+                    ...chartData.xAxis.axisLabel,
+                    fontSize: isFaceted ? 9 : 10,
+                    interval: 0, // Always show all labels
+                    rotate: isFaceted ? (chartData.xAxis.type === 'category' ? 30 : 0) : (chartData.xAxis.axisLabel?.rotate || 0),
+                    overflow: 'truncate',
+                    width: isFaceted ? 40 : 60
+                },
+                axisLine: {
+                    show: true,
+                    lineStyle: { color: '#d0d0d0' }
+                },
+                axisTick: {
+                    show: true,
+                    lineStyle: { color: '#d0d0d0' }
+                }
+            };
+
+            const yAxisConfig = {
+                ...chartData.yAxis,
+                axisLabel: {
+                    ...chartData.yAxis.axisLabel,
+                    fontSize: isFaceted ? 9 : 10,
+                    interval: 0, // Always show all labels
+                    overflow: 'truncate',
+                    width: isFaceted ? 35 : 50
+                },
+                axisLine: {
+                    show: true,
+                    lineStyle: { color: '#d0d0d0' }
+                },
+                axisTick: {
+                    show: true,
+                    lineStyle: { color: '#d0d0d0' }
+                }
+            };
+
+            const option = {
+                tooltip: {
+                    trigger: chartData.series[0]?.type === 'heatmap' ? 'item' : 'axis',
+                    axisPointer: { type: 'shadow' }
+                },
+                legend: legendConfig,
+                xAxis: xAxisConfig,
+                yAxis: yAxisConfig,
+                series: chartData.series,
+                grid: gridConfig,
+                visualMap: chartData.visualMap,
+                animation: !isFaceted // Disable animations in faceted mode for performance
+            };
+
+            try {
+                chart.setOption(option, true);
+                if (!isFaceted) {
+                    updateLegendPanel(chartData.legend);
+                }
+                
+                // Ensure chart resizes properly in faceted mode
+                if (isFaceted) {
+                    setTimeout(() => chart.resize(), 100);
+                }
+            } catch (error) {
+                console.error('Error rendering chart:', error);
+            }
+        }
+
+        // Update legend panel
+        function updateLegendPanel(legendData) {
+            const legendPanel = document.querySelector('.legend-panel');
+            const legendContent = document.querySelector('.legend-content');
+
+            if (state.color && state.showLegend && legendData && state.legendPosition === 'right') {
+                legendPanel.style.display = 'block';
+                legendContent.innerHTML = '';
+
+                legendData.forEach(item => {
+                    const legendItem = document.createElement('div');
+                    legendItem.style.cssText = `
+                        display: flex;
+                        align-items: center;
+                        margin-bottom: 5px;
+                        font-size: 12px;
+                    `;
+
+                    const colorBox = document.createElement('div');
+                    colorBox.style.cssText = `
+                        width: 12px;
+                        height: 12px;
+                        background: ${item.color};
+                        margin-right: 6px;
+                        border-radius: 2px;
+                    `;
+
+                    legendItem.appendChild(colorBox);
+                    legendItem.appendChild(document.createTextNode(item.name));
+                    legendContent.appendChild(legendItem);
+                });
+            } else {
+                legendPanel.style.display = 'none';
+            }
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', async () => {
+            const success = await initializeDuckDB();
+
+            const uploadArea = document.getElementById('uploadArea');
+            const fileInput = document.getElementById('fileInput');
+
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                
+                const files = e.dataTransfer.files;
+                if (files.length > 0 && files[0].type === 'text/csv') {
+                    handleFileUpload(files[0]);
+                } else {
+                    alert('Please upload a CSV file.');
+                }
+            });
+
+            fileInput.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    handleFileUpload(e.target.files[0]);
+                }
+            });
+
+            document.getElementById('sampleDataBtn').addEventListener('click', async () => {
+                showLoading(true);
+                
+                const sampleData = generateSampleData();
+                
+                document.getElementById('fileInfo').style.display = 'block';
+                document.getElementById('fileInfo').innerHTML = `
+                    <strong>File:</strong> Sample Data<br>
+                    <strong>Rows:</strong> ${sampleData.length}<br>
+                    <strong>Columns:</strong> ${Object.keys(sampleData[0]).join(', ')}
+                `;
+
+                const success = await loadDataIntoDuckDB(sampleData);
+                if (success) {
+                    initializeWidget();
+                }
+                
+                showLoading(false);
+            });
+        });
+    </script>
+</body>
+</html>
